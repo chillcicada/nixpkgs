@@ -1,37 +1,43 @@
-{ lib
-, stdenv
-, dpkg
-, autoPatchelfHook
-, alsa-lib
-, at-spi2-core
-, libtool
-, libxkbcommon
-, nspr
-, libgbm
-, libtiff
-, udev
-, gtk3
-, qtbase
-, xorg
-, cups
-, pango
-, runCommandLocal
-, curl
-, coreutils
-, cacert
-, libjpeg
-, useChineseVersion ? false
+{
+  lib,
+  stdenv,
+  dpkg,
+  autoPatchelfHook,
+  alsa-lib,
+  at-spi2-core,
+  libtool,
+  libxkbcommon,
+  nspr,
+  libgbm,
+  libtiff,
+  udev,
+  gtk3,
+  qtbase,
+  xorg,
+  cups,
+  pango,
+  runCommandLocal,
+  curl,
+  coreutils,
+  cacert,
+  libjpeg,
+  libusb1,
+  useChineseVersion ? false,
 }:
 let
-  pkgVersion = "11.1.0.11723";
+  pkgVersion =
+    if useChineseVersion then
+      "12.1.0.17900"
+    else
+      "11.1.0.11723";
   url =
     if useChineseVersion then
-      "https://wps-linux-personal.wpscdn.cn/wps/download/ep/Linux2019/${lib.last (lib.splitVersion pkgVersion)}/wps-office_${pkgVersion}_amd64.deb"
+      "https://wps-linux-personal.wpscdn.cn/wps/download/ep/Linux2023/${lib.last (lib.splitVersion pkgVersion)}/wps-office_${pkgVersion}_amd64.deb"
     else
       "https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/${lib.last (lib.splitVersion pkgVersion)}/wps-office_${pkgVersion}.XA_amd64.deb";
   hash =
     if useChineseVersion then
-      "sha256-vpXK8YyjqhFdmtajO6ZotYACpe5thMct9hwUT3advUM="
+      "sha256-i2EVCmDLE2gx7l2aAo+fW8onP/z+xlPIbQYwKhQ46+o="
     else
       "sha256-o8njvwE/UsQpPuLyChxGAZ4euvwfuaHxs5pfUvcM7kI=";
   uri = builtins.replaceStrings [ "https://wps-linux-personal.wpscdn.cn" ] [ "" ] url;
@@ -41,25 +47,36 @@ stdenv.mkDerivation rec {
   pname = "wpsoffice";
   version = pkgVersion;
 
-  src = runCommandLocal (if useChineseVersion then "wps-office_${version}_amd64.deb" else "wps-office_${version}.XA_amd64.deb")
-    {
-      outputHashMode = "recursive";
-      outputHashAlgo = "sha256";
-      outputHash = hash;
+  src =
+    runCommandLocal
+      (
+        if useChineseVersion then
+          "wps-office_${version}_amd64.deb"
+        else
+          "wps-office_${version}.XA_amd64.deb"
+      )
+      {
+        outputHashMode = "recursive";
+        outputHashAlgo = "sha256";
+        outputHash = hash;
 
-      nativeBuildInputs = [ curl coreutils ];
+        nativeBuildInputs = [
+          curl
+          coreutils
+        ];
 
-      impureEnvVars = lib.fetchers.proxyImpureEnvVars;
-      SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
-    } ''
-    timestamp10=$(date '+%s')
-    md5hash=($(echo -n "${securityKey}${uri}$timestamp10" | md5sum))
+        impureEnvVars = lib.fetchers.proxyImpureEnvVars;
+        SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
+      }
+      ''
+        timestamp10=$(date '+%s')
+        md5hash=($(echo -n "${securityKey}${uri}$timestamp10" | md5sum))
 
-    curl \
-    --retry 3 --retry-delay 3 \
-    "${url}?t=$timestamp10&k=$md5hash" \
-    > $out
-  '';
+        curl \
+        --retry 3 --retry-delay 3 \
+        "${url}?t=$timestamp10&k=$md5hash" \
+        > $out
+      '';
 
   unpackCmd = "dpkg -x $src .";
   sourceRoot = ".";
@@ -81,6 +98,7 @@ stdenv.mkDerivation rec {
     udev
     gtk3
     qtbase
+    libusb1
     xorg.libXdamage
     xorg.libXtst
     xorg.libXv
@@ -100,6 +118,8 @@ stdenv.mkDerivation rec {
     "libQtCore.so.4"
     "libQtNetwork.so.4"
     "libQtXml.so.4"
+
+    "libuof.so"
   ];
 
   installPhase = ''
@@ -136,6 +156,11 @@ stdenv.mkDerivation rec {
     sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     hydraPlatforms = [ ];
     license = licenses.unfreeRedistributable;
-    maintainers = with maintainers; [ mlatus th0rgal rewine pokon548 ];
+    maintainers = with maintainers; [
+      mlatus
+      th0rgal
+      rewine
+      pokon548
+    ];
   };
 }
